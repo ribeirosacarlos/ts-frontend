@@ -345,10 +345,10 @@ function App() {
 
     return (
         <>
-            <div className="max-w-4xl mx-auto mt-10 space-y-8">
-                <div className="space-y-4 mb-8">
-                    <h2 className="text-2xl font-bold">Criar Nova Lista</h2>
-                    <div className="flex gap-2">
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
+                <div className="space-y-4">
+                    <h2 className="text-xl sm:text-2xl font-bold">Criar Nova Lista</h2>
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <Input
                             placeholder="Nome da nova lista..."
                             value={newListName}
@@ -356,8 +356,9 @@ function App() {
                             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                 if (e.key === "Enter") createNewList();
                             }}
+                            className="flex-1"
                         />
-                        <Button onClick={createNewList} className="flex items-center gap-2">
+                        <Button onClick={createNewList} className="flex items-center justify-center gap-2">
                             <Plus className="h-4 w-4" />
                             Nova Lista
                         </Button>
@@ -365,20 +366,25 @@ function App() {
                 </div>
 
                 {todoLists.map((list) => (
-                    <div key={list.id} className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold">{list.name}</h2>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => deleteList(list.id)}
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                    <div key={list.id} className="space-y-4 border border-gray-100 rounded-lg p-4 sm:p-6 bg-white shadow-sm">
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl sm:text-2xl font-bold">{list.name}</h2>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => deleteList(list.id)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                                {list.tasks.filter(task => task.is_completed === 1).length}/{list.tasks.length} tarefas completas
+                            </p>
                         </div>
                         
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Input
                                 placeholder="Digite uma nova tarefa..."
                                 value={newTasks[list.id] || ""}
@@ -388,21 +394,28 @@ function App() {
                                 onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                     if (e.key === "Enter") createTask(list.id);
                                 }}
+                                className="flex-1"
                             />
-                            <Button onClick={() => createTask(list.id)}>Adicionar</Button>
+                            <Button onClick={() => createTask(list.id)} className="whitespace-nowrap">
+                                Adicionar
+                            </Button>
                         </div>
 
                         <div className="space-y-2">
                             {list.tasks.map((task) => (
-                                <Card key={task.id}>
-                                    <CardContent className="flex items-center justify-between p-4">
-                                        <div className="flex items-center gap-2">
+                                <Card key={task.id} className="hover:bg-gray-50 transition-colors border-gray-100">
+                                    <CardContent className="flex items-center justify-between p-3 sm:p-4">
+                                        <div 
+                                            className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
+                                            onClick={() => toggleTask(task.id, list.id, task.is_completed)}
+                                        >
                                             <Checkbox
                                                 checked={task.is_completed === 1}
                                                 onCheckedChange={() => toggleTask(task.id, list.id, task.is_completed)}
+                                                className="shrink-0"
                                             />
                                             <span
-                                                className={`${
+                                                className={`truncate ${
                                                     task.is_completed === 1 ? "line-through text-gray-400" : ""
                                                 }`}
                                             >
@@ -412,8 +425,11 @@ function App() {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => deleteTask(task.id, list.id)}
+                                            className="h-8 w-8 shrink-0 ml-2"
+                                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                                e.stopPropagation();
+                                                deleteTask(task.id, list.id);
+                                            }}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
