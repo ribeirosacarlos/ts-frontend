@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -6,6 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash2, Plus, X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
+import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
+import { fetchWithAuth } from "@/utils/api";
 
 type Task = {
   id: number;
@@ -31,11 +35,12 @@ type ApiError = {
   };
 }
 
-function App() {
+function TodoApp() {
     const [todoLists, setTodoLists] = useState<TodoList[]>([]);
     const [newTasks, setNewTasks] = useState<{ [key: number]: string }>({});
     const [newListName, setNewListName] = useState("");
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     const showError = (error: ApiError) => {
         let errorMessage = error.message;
@@ -57,7 +62,7 @@ function App() {
 
     const fetchTodoLists = async () => {
         try {
-            const response = await fetch("http://localhost:8080/api/to-do-lists");
+            const response = await fetchWithAuth("/to-do-lists");
             const data = await response.json();
             setTodoLists(data);
         } catch (error) {
@@ -87,9 +92,8 @@ function App() {
         setNewListName("");
         
         try {
-            const response = await fetch("http://localhost:8080/api/to-do-lists", {
+            const response = await fetchWithAuth("/to-do-lists", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: newListName }),
             });
 
@@ -128,7 +132,7 @@ function App() {
         setTodoLists(prev => prev.filter(list => list.id !== listId));
         
         try {
-            const response = await fetch(`http://localhost:8080/api/to-do-lists/${listId}`, {
+            const response = await fetchWithAuth(`/to-do-lists/${listId}`, {
                 method: "DELETE",
             });
 
@@ -179,9 +183,8 @@ function App() {
         setNewTasks(prev => ({ ...prev, [listId]: "" }));
         
         try {
-            const response = await fetch("http://localhost:8080/api/tasks", {
+            const response = await fetchWithAuth("/tasks", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
                     description: taskDescription,
                     to_do_list_id: listId 
@@ -249,12 +252,8 @@ function App() {
         ));
         
         try {
-            const response = await fetch(`http://localhost:8080/api/tasks/${taskId}`, {
+            const response = await fetchWithAuth(`/tasks/${taskId}`, {
                 method: "PUT",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
                 body: JSON.stringify({
                     is_completed: !isCompleted
                 }),
@@ -315,7 +314,7 @@ function App() {
         ));
         
         try {
-            const response = await fetch(`http://localhost:8080/api/tasks/${taskId}`, {
+            const response = await fetchWithAuth(`/tasks/${taskId}`, {
                 method: "DELETE",
             });
 
@@ -343,105 +342,160 @@ function App() {
         }
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        toast({
+            title: "Sucesso",
+            description: "Logout realizado com sucesso!",
+        });
+        navigate('/login');
+    };
+
     return (
-        <>
-            <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
-                <div className="space-y-4">
-                    <h2 className="text-xl sm:text-2xl font-bold">Criar Nova Lista</h2>
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold">Minhas Listas</h1>
+                <Button variant="outline" onClick={handleLogout}>
+                    Sair
+                </Button>
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-xl sm:text-2xl font-bold">Criar Nova Lista</h2>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                        placeholder="Nome da nova lista..."
+                        value={newListName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewListName(e.target.value)}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === "Enter") createNewList();
+                        }}
+                        className="flex-1"
+                    />
+                    <Button onClick={createNewList} className="flex items-center justify-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Lista
+                    </Button>
+                </div>
+            </div>
+
+            {todoLists.map((list) => (
+                <div key={list.id} className="space-y-4 border border-gray-100 rounded-lg p-4 sm:p-6 bg-white shadow-sm">
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl sm:text-2xl font-bold">{list.name}</h2>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => deleteList(list.id)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                            {list.tasks.filter(task => task.is_completed === 1).length}/{list.tasks.length} tarefas completas
+                        </p>
+                    </div>
+                    
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Input
-                            placeholder="Nome da nova lista..."
-                            value={newListName}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewListName(e.target.value)}
+                            placeholder="Digite uma nova tarefa..."
+                            value={newTasks[list.id] || ""}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                                setNewTasks(prev => ({ ...prev, [list.id]: e.target.value }))
+                            }
                             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                if (e.key === "Enter") createNewList();
+                                if (e.key === "Enter") createTask(list.id);
                             }}
                             className="flex-1"
                         />
-                        <Button onClick={createNewList} className="flex items-center justify-center gap-2">
-                            <Plus className="h-4 w-4" />
-                            Nova Lista
+                        <Button onClick={() => createTask(list.id)} className="whitespace-nowrap">
+                            Adicionar
                         </Button>
                     </div>
-                </div>
 
-                {todoLists.map((list) => (
-                    <div key={list.id} className="space-y-4 border border-gray-100 rounded-lg p-4 sm:p-6 bg-white shadow-sm">
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl sm:text-2xl font-bold">{list.name}</h2>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => deleteList(list.id)}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <p className="text-sm text-gray-500">
-                                {list.tasks.filter(task => task.is_completed === 1).length}/{list.tasks.length} tarefas completas
-                            </p>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row gap-2">
-                            <Input
-                                placeholder="Digite uma nova tarefa..."
-                                value={newTasks[list.id] || ""}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                    setNewTasks(prev => ({ ...prev, [list.id]: e.target.value }))
-                                }
-                                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                    if (e.key === "Enter") createTask(list.id);
-                                }}
-                                className="flex-1"
-                            />
-                            <Button onClick={() => createTask(list.id)} className="whitespace-nowrap">
-                                Adicionar
-                            </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                            {list.tasks.map((task) => (
-                                <Card key={task.id} className="hover:bg-gray-50 transition-colors border-gray-100">
-                                    <CardContent className="flex items-center justify-between p-3 sm:p-4">
-                                        <div 
-                                            className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
-                                            onClick={() => toggleTask(task.id, list.id, task.is_completed)}
+                    <div className="space-y-2">
+                        {list.tasks.map((task) => (
+                            <Card key={task.id} className="hover:bg-gray-50 transition-colors border-gray-100">
+                                <CardContent className="flex items-center justify-between p-3 sm:p-4">
+                                    <div 
+                                        className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
+                                        onClick={() => toggleTask(task.id, list.id, task.is_completed)}
+                                    >
+                                        <Checkbox
+                                            checked={task.is_completed === 1}
+                                            onCheckedChange={() => toggleTask(task.id, list.id, task.is_completed)}
+                                            className="shrink-0"
+                                        />
+                                        <span
+                                            className={`truncate ${
+                                                task.is_completed === 1 ? "line-through text-gray-400" : ""
+                                            }`}
                                         >
-                                            <Checkbox
-                                                checked={task.is_completed === 1}
-                                                onCheckedChange={() => toggleTask(task.id, list.id, task.is_completed)}
-                                                className="shrink-0"
-                                            />
-                                            <span
-                                                className={`truncate ${
-                                                    task.is_completed === 1 ? "line-through text-gray-400" : ""
-                                                }`}
-                                            >
-                                                {task.description}
-                                            </span>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 shrink-0 ml-2"
-                                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                                                e.stopPropagation();
-                                                deleteTask(task.id, list.id);
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                                            {task.description}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0 ml-2"
+                                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                            e.stopPropagation();
+                                            deleteTask(task.id, list.id);
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
                     </div>
-                ))}
-            </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function App() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        setIsAuthenticated(!!token);
+    }, []);
+
+    return (
+        <Router>
+            <Routes>
+                <Route 
+                    path="/login" 
+                    element={
+                        isAuthenticated ? 
+                        <Navigate to="/" replace /> : 
+                        <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />
+                    } 
+                />
+                <Route 
+                    path="/register" 
+                    element={
+                        isAuthenticated ? 
+                        <Navigate to="/" replace /> : 
+                        <RegisterPage />
+                    } 
+                />
+                <Route 
+                    path="/" 
+                    element={
+                        isAuthenticated ? 
+                        <TodoApp /> : 
+                        <Navigate to="/login" replace />
+                    } 
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
             <Toaster />
-        </>
+        </Router>
     );
 }
 
